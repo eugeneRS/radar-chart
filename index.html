@@ -15,10 +15,14 @@
       --danger: #e74c3c;
       --success: #27ae60;
       --gray: #95a5a6;
+      --light-gray: #bbb;
       --border: #ddd;
       --tab-bg: #ecf0f1;
       --tab-active: #ffffff;
       --shadow: 0 4px 20px rgba(0,0,0,0.1);
+      --delete-bg: #bdc3c7;
+      --add-btn: #95a5a6;
+      --add-btn-hover: #7f8c8d;
     }
 
     [data-theme="dark"] {
@@ -29,10 +33,14 @@
       --danger: #e74c3c;
       --success: #2ecc71;
       --gray: #bdc3c7;
+      --light-gray: #777;
       --border: #444;
       --tab-bg: #3a3a3a;
       --tab-active: #2d2d2d;
       --shadow: 0 4px 20px rgba(0,0,0,0.3);
+      --delete-bg: #7f8c8d;
+      --add-btn: #777;
+      --add-btn-hover: #666;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,7 +60,6 @@
       border-radius: 12px;
       box-shadow: var(--shadow);
       overflow: hidden;
-      transition: all 0.3s;
     }
 
     .header {
@@ -124,25 +131,61 @@
 
     .content { padding: 20px; }
 
-    .chart-container {
+    .chart-wrapper {
       position: relative;
       height: 380px;
       margin-bottom: 20px;
+      overflow: visible;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .chart-canvas {
+      transform-origin: center;
+      transition: transform 0.1s ease-out;
+    }
+
+    .scale-setting {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 15px;
+    }
+
+    .scale-setting label { white-space: nowrap; }
+    .scale-setting input {
+      width: 80px;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      text-align: center;
+      background: var(--container-bg);
+      color: var(--text);
     }
 
     .controls {
       display: grid;
-      grid-template-columns: 1fr 80px 60px;
+      grid-template-columns: 1fr;
       gap: 8px;
       margin-bottom: 15px;
-      align-items: center;
     }
 
     @media (min-width: 600px) {
       .controls { grid-template-columns: 1fr 1fr 80px 90px; }
     }
 
-    input[type="text"] {
+    @media (max-width: 480px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+      .controls > * { width: 100%; }
+      .controls input[type="range"] { height: 50px; margin: 8px 0; }
+    }
+
+    input[type="text"], input[type="number"] {
       padding: 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -151,17 +194,46 @@
       color: var(--text);
     }
 
-    input[type="range"] { accent-color: var(--primary); }
+    input[type="range"] {
+      -webkit-appearance: none;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--light-gray);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: var(--light-gray);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    [data-theme="dark"] input[type="range"] {
+      background: #444;
+    }
 
     .value-display {
       text-align: center;
       font-weight: bold;
       font-size: 0.9rem;
       color: var(--text);
+      min-width: 40px;
     }
 
     button {
-      background: var(--danger);
+      background: var(--success);
       color: white;
       border: none;
       padding: 8px 12px;
@@ -171,10 +243,30 @@
       transition: background 0.3s;
     }
 
-    button:hover { background: #c0392b; }
+    button:hover { background: #219653; }
 
-    .add-btn { background: var(--success); }
-    .add-btn:hover { background: #219653; }
+    .add-btn {
+      background: var(--add-btn);
+      color: white;
+    }
+
+    .add-btn:hover {
+      background: var(--add-btn-hover);
+    }
+
+    .delete-btn {
+      background: var(--delete-bg);
+      color: white;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-btn:hover { background: #95a5a6; }
 
     .param-item {
       background: rgba(0,0,0,0.03);
@@ -183,15 +275,38 @@
       margin-bottom: 10px;
       border-left: 4px solid var(--primary);
       display: grid;
-      grid-template-columns: 1fr 80px 60px;
+      grid-template-columns: 1fr;
       gap: 8px;
       align-items: center;
       font-size: 0.9rem;
     }
 
     @media (min-width: 600px) {
-      .param-item { grid-template-columns: 1fr 1fr 80px 90px; }
+      .param-item { 
+        grid-template-columns: 1fr 1fr 80px 40px; 
+        grid-template-areas: 
+          "label label label label"
+          "input slider value delete";
+      }
     }
+
+    @media (max-width: 480px) {
+      .param-item {
+        grid-template-areas: 
+          "label"
+          "input"
+          "slider"
+          "value"
+          "delete";
+      }
+      .param-item input[type="range"] { height: 50px; }
+    }
+
+    .param-item strong { grid-area: label; }
+    .param-item .param-input { grid-area: input; }
+    .param-item .param-slider { grid-area: slider; }
+    .param-item .value-display { grid-area: value; }
+    .param-item .delete-btn { grid-area: delete; }
 
     .no-data {
       text-align: center;
@@ -213,9 +328,10 @@
 
     @media (max-width: 480px) {
       .header h1 { font-size: 1.1rem; }
-      .controls, .param-item { grid-template-columns: 1fr 60px 50px; }
       .tab { padding: 8px 12px; font-size: 0.8rem; min-width: 80px; }
-      .chart-container { height: 300px; }
+      .chart-wrapper { height: 300px; }
+      .scale-setting { font-size: 0.8rem; }
+      .scale-setting input { width: 60px; }
     }
   </style>
 </head>
@@ -236,8 +352,13 @@
     <div class="tab-container" id="tab-container"></div>
 
     <div class="content">
-      <div class="chart-container">
-        <canvas id="radarChart"></canvas>
+      <div class="chart-wrapper" id="chart-wrapper">
+        <canvas id="radarChart" class="chart-canvas"></canvas>
+      </div>
+
+      <div class="scale-setting">
+        <label for="scale-max">Макс. значение:</label>
+        <input type="number" id="scale-max" min="10" max="100" step="1" value="100" />
       </div>
 
       <div id="params-list">
@@ -246,8 +367,8 @@
 
       <div class="controls">
         <input type="text" id="new-label" placeholder="Параметр" />
-        <input type="range" id="new-value" min="0" max="100" value="50" />
-        <span class="value-display" id="value-display">50</span>
+        <input type="number" id="new-value-input" min="0" value="50" class="value-display" />
+        <input type="range" id="new-value-slider" min="0" value="50" />
         <button class="add-btn" id="add-btn">Добавить</button>
       </div>
     </div>
@@ -259,35 +380,53 @@
     const body = document.body;
     const savedTheme = localStorage.getItem('theme') || 'light';
     body.dataset.theme = savedTheme;
+
+    function updateThemeIcon() {
+      const icon = themeToggle.querySelector('i');
+      icon.className = body.dataset.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
     updateThemeIcon();
+
+    // === ОБНОВЛЕНИЕ ЦВЕТОВ ДИАГРАММЫ ===
+    function updateChartColors() {
+      const isDark = body.dataset.theme === 'dark';
+      const textColor = isDark ? '#ecf0f1' : '#2c3e50';
+      const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+      radarChart.options.scales.r.pointLabels.color = textColor;
+      radarChart.options.scales.r.ticks.color = textColor;
+      radarChart.options.scales.r.grid.color = gridColor;
+      radarChart.options.scales.r.angleLines.color = gridColor;
+      radarChart.update();
+    }
 
     themeToggle.addEventListener('click', () => {
       const newTheme = body.dataset.theme === 'dark' ? 'light' : 'dark';
       body.dataset.theme = newTheme;
       localStorage.setItem('theme', newTheme);
       updateThemeIcon();
+      updateChartColors();
     });
-
-    function updateThemeIcon() {
-      const icon = themeToggle.querySelector('i');
-      icon.className = body.dataset.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-    }
 
     // === ДАННЫЕ ===
     let diagrams = JSON.parse(localStorage.getItem('radarDiagrams')) || [];
     let activeTabId = null;
+    let currentMax = 100;
 
     // DOM
     const tabContainer = document.getElementById('tab-container');
     const paramsList = document.getElementById('params-list');
     const newLabelInput = document.getElementById('new-label');
-    const newValueInput = document.getElementById('new-value');
-    const valueDisplay = document.getElementById('value-display');
+    const newValueSlider = document.getElementById('new-value-slider');
+    const newValueInput = document.getElementById('new-value-input');
+    const scaleMaxInput = document.getElementById('scale-max');
     const addBtn = document.getElementById('add-btn');
     const addTabBtn = document.getElementById('add-tab-btn');
+    const chartWrapper = document.getElementById('chart-wrapper');
+    const canvas = document.getElementById('radarChart');
 
-    // Chart.js
-    const ctx = document.getElementById('radarChart').getContext('2d');
+    // === CHART.JS ===
+    const ctx = canvas.getContext('2d');
     const radarChart = new Chart(ctx, {
       type: 'radar',
       data: { labels: [], datasets: [{
@@ -301,11 +440,95 @@
       }]},
       options: {
         responsive: true,
-        maintainAspectRatio: false,
-        scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20 }}},
-        plugins: { legend: { display: false }}
+        maintainAspectRatio: true,
+        scales: { 
+          r: { 
+            beginAtZero: true, 
+            max: 100, 
+            ticks: { 
+              display: false,  // <--- ЧИСЛА УБРАНЫ
+              stepSize: 20,
+              font: { size: 12 }
+            },
+            pointLabels: { font: { size: 18 } },
+            grid: { color: 'rgba(0,0,0,0.1)' },
+            angleLines: { color: 'rgba(0,0,0,0.1)' }
+          }
+        },
+        plugins: { legend: { display: false }},
+        animation: { duration: 0 }
       }
     });
+
+    // === МАСШТАБИРОВАНИЕ ===
+    let scale = 1;
+    chartWrapper.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      scale = Math.max(0.5, Math.min(3, scale * delta));
+      canvas.style.transform = `scale(${scale})`;
+    });
+
+    // === МАКСИМУМ ШКАЛЫ ===
+    const savedMax = localStorage.getItem('scaleMax');
+    currentMax = savedMax ? parseInt(savedMax) : 100;
+    scaleMaxInput.value = currentMax;
+
+    scaleMaxInput.addEventListener('change', () => {
+      let max = parseInt(scaleMaxInput.value);
+      if (isNaN(max)) max = 100;
+      max = Math.max(10, Math.min(100, max));
+      scaleMaxInput.value = max;
+      currentMax = max;
+      localStorage.setItem('scaleMax', max);
+      updateMaxValue();
+    });
+
+    function updateMaxValue() {
+      radarChart.options.scales.r.max = currentMax;
+      radarChart.options.scales.r.ticks.stepSize = currentMax / 5;
+
+      newValueSlider.max = currentMax;
+      newValueInput.max = currentMax;
+      if (parseInt(newValueInput.value) > currentMax) {
+        newValueInput.value = currentMax;
+        newValueSlider.value = currentMax;
+      }
+
+      document.querySelectorAll('.param-slider').forEach(slider => {
+        slider.max = currentMax;
+        const input = slider.parentElement.querySelector('.param-input');
+        if (input && parseInt(input.value) > currentMax) {
+          input.value = currentMax;
+          slider.value = currentMax;
+          const index = Array.from(paramsList.children).indexOf(slider.parentElement);
+          if (index !== -1 && activeTabId) {
+            const diag = diagrams.find(d => d.id === activeTabId);
+            if (diag) diag.data[index] = currentMax;
+          }
+        }
+      });
+
+      renderParamsList();
+      radarChart.update();
+    }
+
+    // === СИНХРОНИЗАЦИЯ ===
+    function syncSliderAndInput(slider, input, callback) {
+      slider.addEventListener('input', () => {
+        input.value = slider.value;
+        if (callback) callback(slider.value);
+      });
+      input.addEventListener('input', () => {
+        let val = parseInt(input.value);
+        if (isNaN(val)) val = 0;
+        val = Math.max(0, Math.min(currentMax, val));
+        input.value = val;
+        slider.value = val;
+        if (callback) callback(val);
+      });
+    }
+    syncSliderAndInput(newValueSlider, newValueInput);
 
     // === ВКЛАДКИ ===
     function createTab(id, name) {
@@ -314,7 +537,7 @@
       tab.dataset.id = id;
       tab.innerHTML = `
         <span class="tab-name" ondblclick="startRename(this, '${id}')">${name}</span>
-        <span class="close" onclick="removeTab('${id}', event)">×</span>
+        <span class="close" onclick="removeTab('${id}', event)">x</span>
       `;
       tab.onclick = (e) => {
         if (!e.target.classList.contains('close')) switchTab(id);
@@ -337,23 +560,20 @@
       activeTabId = id;
       renderTabs();
       loadDiagram(id);
+      updateChartColors();
     }
 
     function addTab() {
       const id = Date.now().toString();
       const name = `Диаграмма ${diagrams.length + 1}`;
-      const newDiag = { id, name, labels: [], data: [] };
-      diagrams.push(newDiag);
+      diagrams.push({ id, name, labels: [], data: [] });
       saveToStorage();
       switchTab(id);
     }
 
     function removeTab(id, e) {
       e.stopPropagation();
-      if (diagrams.length <= 1) {
-        alert('Нельзя удалить последнюю диаграмму');
-        return;
-      }
+      if (diagrams.length <= 1) return alert('Нельзя удалить последнюю');
       diagrams = diagrams.filter(d => d.id !== id);
       saveToStorage();
       activeTabId = diagrams[0]?.id || null;
@@ -382,15 +602,12 @@
         span.textContent = input.value || 'Без имени';
         input.replaceWith(span);
       };
-      input.onkeypress = (e) => {
-        if (e.key === 'Enter') input.blur();
-      };
+      input.onkeypress = (e) => { if (e.key === 'Enter') input.blur(); };
       span.replaceWith(input);
       input.focus();
       input.select();
     }
 
-    // === ДАННЫЕ ===
     function loadDiagram(id) {
       const diag = diagrams.find(d => d.id === id);
       if (!diag) {
@@ -400,7 +617,6 @@
         renderParamsList();
         return;
       }
-
       radarChart.data.labels = [...diag.labels];
       radarChart.data.datasets[0].data = [...diag.data];
       radarChart.update();
@@ -412,7 +628,7 @@
       const diag = diagrams.find(d => d.id === activeTabId);
       if (diag) {
         diag.labels = [...radarChart.data.labels];
-        diag.data = [...radarChart.data.datasets[0].data];
+        diag.data,diag.data = [...radarChart.data.datasets[0].data];
         saveToStorage();
       }
     }
@@ -421,39 +637,23 @@
       localStorage.setItem('radarDiagrams', JSON.stringify(diagrams));
     }
 
-    // === ПАРАМЕТРЫ ===
     function addParameter() {
-      if (!activeTabId) {
-        alert('Сначала выберите или создайте диаграмму');
-        return;
-      }
-
+      if (!activeTabId) return alert('Выберите диаграмму');
       const label = newLabelInput.value.trim();
-      const value = parseInt(newValueInput.value);
-
-      if (!label) {
-        alert('Введите название параметра');
-        return;
-      }
-
+      const value = Math.min(parseInt(newValueInput.value) || 0, currentMax);
+      if (!label) return alert('Введите название');
       const diag = diagrams.find(d => d.id === activeTabId);
-      if (diag.labels.includes(label)) {
-        alert('Параметр с таким названием уже существует');
-        return;
-      }
-
+      if (diag.labels.includes(label)) return alert('Уже есть');
       diag.labels.push(label);
       diag.data.push(value);
-
       radarChart.data.labels = [...diag.labels];
       radarChart.data.datasets[0].data = [...diag.data];
       radarChart.update();
       renderParamsList();
       saveToStorage();
-
       newLabelInput.value = '';
-      newValueInput.value = 50;
-      valueDisplay.textContent = '50';
+      newValueInput.value = Math.min(50, currentMax);
+      newValueSlider.value = Math.min(50, currentMax);
     }
 
     function removeParameter(index) {
@@ -471,8 +671,10 @@
     function updateParameter(index, value) {
       if (!activeTabId) return;
       const diag = diagrams.find(d => d.id === activeTabId);
-      diag.data[index] = parseInt(value);
-      radarChart.data.datasets[0].data[index] = parseInt(value);
+      const val = Math.min(parseInt(value), currentMax);
+      if (isNaN(val)) return;
+      diag.data[index] = val;
+      radarChart.data.datasets[0].data[index] = val;
       radarChart.update();
     }
 
@@ -481,47 +683,46 @@
         paramsList.innerHTML = '<div class="no-data">Выберите диаграмму</div>';
         return;
       }
-
       const diag = diagrams.find(d => d.id === activeTabId);
       if (!diag || diag.labels.length === 0) {
         paramsList.innerHTML = '<div class="no-data">Добавьте параметры</div>';
         return;
       }
-
       paramsList.innerHTML = '';
       diag.labels.forEach((label, i) => {
+        const val = Math.min(diag.data[i], currentMax);
         const div = document.createElement('div');
         div.className = 'param-item';
         div.innerHTML = `
           <strong>${label}</strong>
-          <input type="range" min="0" max="100" value="${diag.data[i]}" 
-                 onchange="updateParameter(${i}, this.value)" />
-          <span class="value-display">${diag.data[i]}</span>
-          <button onclick="removeParameter(${i})">Удалить</button>
+          <input type="number" min="0" max="${currentMax}" value="${val}" class="param-input value-display" />
+          <input type="range" min="0" max="${currentMax}" value="${val}" class="param-slider" />
+          <button class="delete-btn" onclick="removeParameter(${i})">
+            <i class="fas fa-trash-alt"></i>
+          </button>
         `;
         paramsList.appendChild(div);
+        const slider = div.querySelector('.param-slider');
+        const input = div.querySelector('.param-input');
+        syncSliderAndInput(slider, input, (v) => updateParameter(i, v));
       });
     }
 
     // === СОБЫТИЯ ===
-    newValueInput.addEventListener('input', () => {
-      valueDisplay.textContent = newValueInput.value;
-    });
-
     addBtn.addEventListener('click', addParameter);
     addTabBtn.addEventListener('click', addTab);
-    newLabelInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') addParameter();
-    });
+    newLabelInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addParameter(); });
 
     // === ИНИЦИАЛИЗАЦИЯ ===
-    if (diagrams.length === 0) {
-      addTab();
-    } else {
+    if (diagrams.length === 0) addTab();
+    else {
       activeTabId = diagrams[0].id;
       renderTabs();
       loadDiagram(activeTabId);
     }
+
+    updateChartColors();
+    updateMaxValue();
 
     window.addEventListener('beforeunload', saveCurrentDiagram);
   </script>
