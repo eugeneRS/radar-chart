@@ -375,17 +375,51 @@
   </div>
 
   <script>
+    // === БЕЗОПАСНЫЙ localStorage ===
+    function safeLocalStorage() {
+      try {
+        return window.localStorage;
+      } catch (e) {
+        console.warn('localStorage недоступен:', e);
+        return null;
+      }
+    }
+
+    const storage = safeLocalStorage();
+
+    function saveToStorage() {
+      if (!storage) return;
+      try {
+        storage.setItem('radarDiagrams', JSON.stringify(diagrams));
+        storage.setItem('scaleMax', currentMax);
+        storage.setItem('theme', body.dataset.theme);
+      } catch (e) {
+        console.error('Ошибка сохранения:', e);
+      }
+    }
+
+    function loadFromStorage() {
+      if (!storage) return;
+      try {
+        const saved = storage.getItem('radarDiagrams');
+        const savedMax = storage.getItem('scaleMax');
+        const savedTheme = storage.getItem('theme');
+        if (saved) diagrams = JSON.parse(saved);
+        if (savedMax) currentMax = parseInt(savedMax);
+        if (savedTheme) body.dataset.theme = savedTheme;
+      } catch (e) {
+        console.error('Ошибка загрузки:', e);
+      }
+    }
+
     // === ТЕМА ===
     const themeToggle = document.getElementById('theme-toggle');
     const body = document.body;
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    body.dataset.theme = savedTheme;
 
     function updateThemeIcon() {
       const icon = themeToggle.querySelector('i');
       icon.className = body.dataset.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
     }
-    updateThemeIcon();
 
     function updateChartColors() {
       const isDark = body.dataset.theme === 'dark';
@@ -402,13 +436,13 @@
     themeToggle.addEventListener('click', () => {
       const newTheme = body.dataset.theme === 'dark' ? 'light' : 'dark';
       body.dataset.theme = newTheme;
-      localStorage.setItem('theme', newTheme);
       updateThemeIcon();
       updateChartColors();
+      saveToStorage();
     });
 
     // === ДАННЫЕ ===
-    let diagrams = JSON.parse(localStorage.getItem('radarDiagrams')) || [];
+    let diagrams = [];
     let activeTabId = null;
     let currentMax = 100;
 
@@ -418,7 +452,7 @@
     const newLabelInput = document.getElementById('new-label');
     const newValueSlider = document.getElementById('new-value-slider');
     const newValueInput = document.getElementById('new-value-input');
-    const scaleMaxInput = document.getElementById('scale-max');  // ИСПРАВЛЕНО
+    const scaleMaxInput = document.getElementById('scale-max');
     const addBtn = document.getElementById('add-btn');
     const addTabBtn = document.getElementById('add-tab-btn');
     const chartWrapper = document.getElementById('chart-wrapper');
@@ -465,18 +499,14 @@
     });
 
     // === МАКСИМУМ ШКАЛЫ ===
-    const savedMax = localStorage.getItem('scaleMax');
-    currentMax = savedMax ? parseInt(savedMax) : 100;
-    scaleMaxInput.value = currentMax;
-
     scaleMaxInput.addEventListener('change', () => {
       let max = parseInt(scaleMaxInput.value);
       if (isNaN(max)) max = 100;
       max = Math.max(10, Math.min(100, max));
       scaleMaxInput.value = max;
       currentMax = max;
-      localStorage.setItem('scaleMax', max);
       updateMaxValue();
+      saveToStorage();
     });
 
     function updateMaxValue() {
@@ -526,7 +556,7 @@
     }
     syncSliderAndInput(newValueSlider, newValueInput);
 
-    // === ОБНОВЛЕНИЕ МЕТОК НА ГРАФИКЕ (ТОЛЬКО НОМЕРА) ===
+    // === МЕТКИ НА ГРАФИКЕ (ТОЛЬКО НОМЕРА) ===
     function updateChartLabels() {
       if (!activeTabId) return;
       const diag = diagrams.find(d => d.id === activeTabId);
@@ -631,13 +661,9 @@
       if (!activeTabId) return;
       const diag = diagrams.find(d => d.id === activeTabId);
       if (diag) {
-        diag.data = [...radarChart.data.datasets[0].data];  // ИСПРАВЛЕНО
+        diag.data = [...radarChart.data.datasets[0].data];
         saveToStorage();
       }
-    }
-
-    function saveToStorage() {
-      localStorage.setItem('radarDiagrams', JSON.stringify(diagrams));
     }
 
     function addParameter() {
@@ -649,10 +675,10 @@
       if (diag.labels.includes(label)) return alert('Уже есть');
       diag.labels.push(label);
       diag.data.push(value);
+      saveCurrentDiagram();
       updateChartLabels();
       radarChart.update();
       renderParamsList();
-      saveToStorage();
       newLabelInput.value = '';
       newValueInput.value = Math.min(50, currentMax);
       newValueSlider.value = Math.min(50, currentMax);
@@ -663,10 +689,10 @@
       const diag = diagrams.find(d => d.id === activeTabId);
       diag.labels.splice(index, 1);
       diag.data.splice(index, 1);
+      saveCurrentDiagram();
       updateChartLabels();
       radarChart.update();
       renderParamsList();
-      saveToStorage();
     }
 
     function updateParameter(index, value) {
@@ -676,6 +702,7 @@
       if (isNaN(val)) return;
       diag.data[index] = val;
       radarChart.data.datasets[0].data[index] = val;
+      saveCurrentDiagram();
       radarChart.update();
     }
 
@@ -684,7 +711,7 @@
       const diag = diagrams.find(d => d.id === activeTabId);
       if (newName.trim()) {
         diag.labels[index] = newName.trim();
-        saveToStorage();
+        saveCurrentDiagram();
         renderParamsList();
         updateChartLabels();
         radarChart.update();
@@ -750,8 +777,13 @@
     newLabelInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addParameter(); });
 
     // === ИНИЦИАЛИЗАЦИЯ ===
-    if (diagrams.length === 0) addTab();
-    else {
+    loadFromStorage();
+    updateThemeIcon();
+    scaleMaxInput.value = currentMax;
+
+    if (diagrams.length === 0) {
+      addTab();
+    } else {
       activeTabId = diagrams[0].id;
       renderTabs();
       loadDiagram(activeTabId);
@@ -760,6 +792,7 @@
     updateChartColors();
     updateMaxValue();
 
+    // Сохранение при закрытии
     window.addEventListener('beforeunload', saveCurrentDiagram);
   </script>
 </body>
