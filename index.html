@@ -127,7 +127,7 @@
     }
 
     .tab .close { color: var(--danger); font-size: 1rem; opacity: 0.7; }
-    .tab .close:hover { opacity: 1; }
+    .tabwip .close:hover { opacity: 1; }
 
     .content { padding: 20px; }
 
@@ -391,7 +391,6 @@
       if (!storage) return;
       try {
         storage.setItem('radarDiagrams', JSON.stringify(diagrams));
-        storage.setItem('scaleMax', currentMax);
         storage.setItem('theme', body.dataset.theme);
       } catch (e) {
         console.error('Ошибка сохранения:', e);
@@ -402,10 +401,8 @@
       if (!storage) return;
       try {
         const saved = storage.getItem('radarDiagrams');
-        const savedMax = storage.getItem('scaleMax');
         const savedTheme = storage.getItem('theme');
         if (saved) diagrams = JSON.parse(saved);
-        if (savedMax) currentMax = parseInt(savedMax);
         if (savedTheme) body.dataset.theme = savedTheme;
       } catch (e) {
         console.error('Ошибка загрузки:', e);
@@ -444,7 +441,6 @@
     // === ДАННЫЕ ===
     let diagrams = [];
     let activeTabId = null;
-    let currentMax = 100;
 
     // DOM
     const tabContainer = document.getElementById('tab-container');
@@ -498,18 +494,28 @@
       canvas.style.transform = `scale(${scale})`;
     });
 
-    // === МАКСИМУМ ШКАЛЫ ===
+    // === МАКСИМУМ ШКАЛЫ ДЛЯ КАЖДОЙ ДИАГРАММЫ ===
     scaleMaxInput.addEventListener('change', () => {
+      if (!activeTabId) return;
       let max = parseInt(scaleMaxInput.value);
       if (isNaN(max)) max = 100;
       max = Math.max(10, Math.min(100, max));
       scaleMaxInput.value = max;
-      currentMax = max;
-      updateMaxValue();
-      saveToStorage();
+
+      const diag = diagrams.find(d => d.id === activeTabId);
+      if (diag) {
+        diag.maxValue = max;
+        updateMaxValue();
+        saveToStorage();
+      }
     });
 
     function updateMaxValue() {
+      if (!activeTabId) return;
+      const diag = diagrams.find(d => d.id === activeTabId);
+      if (!diag) return;
+
+      const currentMax = diag.maxValue || 100;
       radarChart.options.scales.r.max = currentMax;
       radarChart.options.scales.r.ticks.stepSize = currentMax / 5;
 
@@ -527,9 +533,8 @@
           input.value = currentMax;
           slider.value = currentMax;
           const index = Array.from(paramsList.children).indexOf(slider.parentElement);
-          if (index !== -1 && activeTabId) {
-            const diag = diagrams.find(d => d.id === activeTabId);
-            if (diag) diag.data[index] = currentMax;
+          if (index !== -1) {
+            diag.data[index] = currentMax;
           }
         }
       });
@@ -548,7 +553,9 @@
       input.addEventListener('input', () => {
         let val = parseInt(input.value);
         if (isNaN(val)) val = 0;
-        val = Math.max(0, Math.min(currentMax, val));
+        const diag = diagrams.find(d => d.id === activeTabId);
+        const max = diag?.maxValue || 100;
+        val = Math.max(0, Math.min(max, val));
         input.value = val;
         slider.value = val;
         if (callback) callback(val);
@@ -596,13 +603,19 @@
       renderTabs();
       loadDiagram(id);
       updateChartColors();
-      updateChartLabels();
+      updateMaxValue(); // Обновляем max при смене вкладки
     }
 
     function addTab() {
       const id = Date.now().toString();
       const name = `Диаграмма ${diagrams.length + 1}`;
-      diagrams.push({ id, name, labels: [], data: [] });
+      diagrams.push({ 
+        id, 
+        name, 
+        labels: [], 
+        data: [], 
+        maxValue: 100 
+      });
       saveToStorage();
       switchTab(id);
     }
@@ -648,11 +661,13 @@
       if (!diag) {
         radarChart.data.labels = [];
         radarChart.data.datasets[0].data = [];
+        scaleMaxInput.value = 100;
         radarChart.update();
         renderParamsList();
         return;
       }
       radarChart.data.datasets[0].data = [...diag.data];
+      scaleMaxInput.value = diag.maxValue || 100;
       updateChartLabels();
       renderParamsList();
     }
@@ -662,6 +677,7 @@
       const diag = diagrams.find(d => d.id === activeTabId);
       if (diag) {
         diag.data = [...radarChart.data.datasets[0].data];
+        diag.maxValue = parseInt(scaleMaxInput.value);
         saveToStorage();
       }
     }
@@ -669,9 +685,9 @@
     function addParameter() {
       if (!activeTabId) return alert('Выберите диаграмму');
       const label = newLabelInput.value.trim();
-      const value = Math.min(parseInt(newValueInput.value) || 0, currentMax);
-      if (!label) return alert('Введите название');
       const diag = diagrams.find(d => d.id === activeTabId);
+      const value = Math.min(parseInt(newValueInput.value) || 0, diag.maxValue || 100);
+      if (!label) return alert('Введите название');
       if (diag.labels.includes(label)) return alert('Уже есть');
       diag.labels.push(label);
       diag.data.push(value);
@@ -680,8 +696,8 @@
       radarChart.update();
       renderParamsList();
       newLabelInput.value = '';
-      newValueInput.value = Math.min(50, currentMax);
-      newValueSlider.value = Math.min(50, currentMax);
+      newValueInput.value = Math.min(50, diag.maxValue || 100);
+      newValueSlider.value = Math.min(50, diag.maxValue || 100);
     }
 
     function removeParameter(index) {
@@ -698,7 +714,7 @@
     function updateParameter(index, value) {
       if (!activeTabId) return;
       const diag = diagrams.find(d => d.id === activeTabId);
-      const val = Math.min(parseInt(value), currentMax);
+      const val = Math.min(parseInt(value), diag.maxValue || 100);
       if (isNaN(val)) return;
       diag.data[index] = val;
       radarChart.data.datasets[0].data[index] = val;
@@ -746,13 +762,13 @@
       }
       paramsList.innerHTML = '';
       diag.labels.forEach((label, i) => {
-        const val = Math.min(diag.data[i], currentMax);
+        const val = Math.min(diag.data[i], diag.maxValue || 100);
         const div = document.createElement('div');
         div.className = 'param-item';
         div.innerHTML = `
           <strong class="param-label">${i + 1}. ${label}</strong>
-          <input type="number" min="0" max="${currentMax}" value="${val}" class="param-input value-display" />
-          <input type="range" min="0" max="${currentMax}" value="${val}" class="param-slider" />
+          <input type="number" min="0" max="${diag.maxValue || 100}" value="${val}" class="param-input value-display" />
+          <input type="range" min="0" max="${diag.maxValue || 100}" value="${val}" class="param-slider" />
           <button class="delete-btn">
             <i class="fas fa-trash-alt"></i>
           </button>
@@ -779,7 +795,6 @@
     // === ИНИЦИАЛИЗАЦИЯ ===
     loadFromStorage();
     updateThemeIcon();
-    scaleMaxInput.value = currentMax;
 
     if (diagrams.length === 0) {
       addTab();
@@ -792,7 +807,6 @@
     updateChartColors();
     updateMaxValue();
 
-    // Сохранение при закрытии
     window.addEventListener('beforeunload', saveCurrentDiagram);
   </script>
 </body>
