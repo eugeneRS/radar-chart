@@ -302,7 +302,7 @@
       .param-item input[type="range"] { height: 50px; }
     }
 
-    .param-item strong { grid-area: label; }
+    .param-item .param-label { grid-area: label; cursor: pointer; }
     .param-item .param-input { grid-area: input; }
     .param-item .param-slider { grid-area: slider; }
     .param-item .value-display { grid-area: value; }
@@ -316,14 +316,14 @@
       font-size: 1rem;
     }
 
-    .tab-name-input {
+    .param-name-input {
       padding: 4px 6px;
       font-size: 0.85rem;
       border: 1px solid var(--primary);
       border-radius: 4px;
       background: var(--container-bg);
       color: var(--text);
-      width: 90px;
+      width: 100%;
     }
 
     @media (max-width: 480px) {
@@ -387,7 +387,6 @@
     }
     updateThemeIcon();
 
-    // === ОБНОВЛЕНИЕ ЦВЕТОВ ДИАГРАММЫ ===
     function updateChartColors() {
       const isDark = body.dataset.theme === 'dark';
       const textColor = isDark ? '#ecf0f1' : '#2c3e50';
@@ -419,7 +418,7 @@
     const newLabelInput = document.getElementById('new-label');
     const newValueSlider = document.getElementById('new-value-slider');
     const newValueInput = document.getElementById('new-value-input');
-    const scaleMaxInput = document.getElementById('scale-max');
+    const scaleMaxInput = document.getElementById('scale-max');  // ИСПРАВЛЕНО
     const addBtn = document.getElementById('add-btn');
     const addTabBtn = document.getElementById('add-tab-btn');
     const chartWrapper = document.getElementById('chart-wrapper');
@@ -445,11 +444,7 @@
           r: { 
             beginAtZero: true, 
             max: 100, 
-            ticks: { 
-              display: false,  // <--- ЧИСЛА УБРАНЫ
-              stepSize: 20,
-              font: { size: 12 }
-            },
+            ticks: { display: false, stepSize: 20, font: { size: 12 } },
             pointLabels: { font: { size: 18 } },
             grid: { color: 'rgba(0,0,0,0.1)' },
             angleLines: { color: 'rgba(0,0,0,0.1)' }
@@ -509,6 +504,7 @@
         }
       });
 
+      updateChartLabels();
       renderParamsList();
       radarChart.update();
     }
@@ -530,18 +526,27 @@
     }
     syncSliderAndInput(newValueSlider, newValueInput);
 
+    // === ОБНОВЛЕНИЕ МЕТОК НА ГРАФИКЕ (ТОЛЬКО НОМЕРА) ===
+    function updateChartLabels() {
+      if (!activeTabId) return;
+      const diag = diagrams.find(d => d.id === activeTabId);
+      if (!diag) return;
+      radarChart.data.labels = diag.labels.map((_, i) => `${i + 1}`);
+      radarChart.update();
+    }
+
     // === ВКЛАДКИ ===
     function createTab(id, name) {
       const tab = document.createElement('button');
       tab.className = 'tab';
       tab.dataset.id = id;
       tab.innerHTML = `
-        <span class="tab-name" ondblclick="startRename(this, '${id}')">${name}</span>
-        <span class="close" onclick="removeTab('${id}', event)">x</span>
+        <span class="tab-name">${name}</span>
+        <span class="close">x</span>
       `;
-      tab.onclick = (e) => {
-        if (!e.target.classList.contains('close')) switchTab(id);
-      };
+      tab.querySelector('.tab-name').ondblclick = () => startRename(tab.querySelector('.tab-name'), id);
+      tab.querySelector('.close').onclick = (e) => { e.stopPropagation(); removeTab(id); };
+      tab.onclick = (e) => { if (!e.target.classList.contains('close')) switchTab(id); };
       return tab;
     }
 
@@ -561,6 +566,7 @@
       renderTabs();
       loadDiagram(id);
       updateChartColors();
+      updateChartLabels();
     }
 
     function addTab() {
@@ -571,8 +577,7 @@
       switchTab(id);
     }
 
-    function removeTab(id, e) {
-      e.stopPropagation();
+    function removeTab(id) {
       if (diagrams.length <= 1) return alert('Нельзя удалить последнюю');
       diagrams = diagrams.filter(d => d.id !== id);
       saveToStorage();
@@ -595,7 +600,7 @@
       const input = document.createElement('input');
       input.type = 'text';
       input.value = span.textContent;
-      input.className = 'tab-name-input';
+      input.className = 'param-name-input';
       input.maxLength = 20;
       input.onblur = () => {
         renameTab(id, input.value);
@@ -617,9 +622,8 @@
         renderParamsList();
         return;
       }
-      radarChart.data.labels = [...diag.labels];
       radarChart.data.datasets[0].data = [...diag.data];
-      radarChart.update();
+      updateChartLabels();
       renderParamsList();
     }
 
@@ -627,8 +631,7 @@
       if (!activeTabId) return;
       const diag = diagrams.find(d => d.id === activeTabId);
       if (diag) {
-        diag.labels = [...radarChart.data.labels];
-        diag.data,diag.data = [...radarChart.data.datasets[0].data];
+        diag.data = [...radarChart.data.datasets[0].data];  // ИСПРАВЛЕНО
         saveToStorage();
       }
     }
@@ -646,8 +649,7 @@
       if (diag.labels.includes(label)) return alert('Уже есть');
       diag.labels.push(label);
       diag.data.push(value);
-      radarChart.data.labels = [...diag.labels];
-      radarChart.data.datasets[0].data = [...diag.data];
+      updateChartLabels();
       radarChart.update();
       renderParamsList();
       saveToStorage();
@@ -661,8 +663,7 @@
       const diag = diagrams.find(d => d.id === activeTabId);
       diag.labels.splice(index, 1);
       diag.data.splice(index, 1);
-      radarChart.data.labels = [...diag.labels];
-      radarChart.data.datasets[0].data = [...diag.data];
+      updateChartLabels();
       radarChart.update();
       renderParamsList();
       saveToStorage();
@@ -676,6 +677,34 @@
       diag.data[index] = val;
       radarChart.data.datasets[0].data[index] = val;
       radarChart.update();
+    }
+
+    function renameParameter(index, newName) {
+      if (!activeTabId) return;
+      const diag = diagrams.find(d => d.id === activeTabId);
+      if (newName.trim()) {
+        diag.labels[index] = newName.trim();
+        saveToStorage();
+        renderParamsList();
+        updateChartLabels();
+        radarChart.update();
+      }
+    }
+
+    function startParamRename(span, index) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = span.textContent.replace(/^\d+\.\s*/, '');
+      input.className = 'param-name-input';
+      input.onblur = () => {
+        renameParameter(index, input.value);
+        span.textContent = `${index + 1}. ${input.value || 'Параметр'}`;
+        input.replaceWith(span);
+      };
+      input.onkeypress = (e) => { if (e.key === 'Enter') input.blur(); };
+      span.replaceWith(input);
+      input.focus();
+      input.select();
     }
 
     function renderParamsList() {
@@ -694,14 +723,21 @@
         const div = document.createElement('div');
         div.className = 'param-item';
         div.innerHTML = `
-          <strong>${label}</strong>
+          <strong class="param-label">${i + 1}. ${label}</strong>
           <input type="number" min="0" max="${currentMax}" value="${val}" class="param-input value-display" />
           <input type="range" min="0" max="${currentMax}" value="${val}" class="param-slider" />
-          <button class="delete-btn" onclick="removeParameter(${i})">
+          <button class="delete-btn">
             <i class="fas fa-trash-alt"></i>
           </button>
         `;
         paramsList.appendChild(div);
+
+        const labelEl = div.querySelector('.param-label');
+        labelEl.addEventListener('dblclick', () => startParamRename(labelEl, i));
+
+        const deleteBtn = div.querySelector('.delete-btn');
+        deleteBtn.addEventListener('click', () => removeParameter(i));
+
         const slider = div.querySelector('.param-slider');
         const input = div.querySelector('.param-input');
         syncSliderAndInput(slider, input, (v) => updateParameter(i, v));
